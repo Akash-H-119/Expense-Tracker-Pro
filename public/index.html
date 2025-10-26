@@ -1,15 +1,165 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Advanced Expense Tracker - Manage your finances effectively" />
-    <title>Advanced Expense Tracker</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Tracker Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+
+  <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="flex min-h-screen">
+      <!-- Sidebar -->
+      <aside class="w-64 bg-white dark:bg-gray-800 shadow-md">
+        <div class="p-4 text-2xl font-bold text-primary">💸 Expense Tracker</div>
+        <nav class="space-y-2 p-4">
+          <a href="index.html" class="block p-2 rounded bg-primary text-white">Dashboard</a>
+          <a href="contacts.html" class="block p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Contacts</a>
+          <a href="transaction.html" class="block p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Add Transaction</a>
+          <a href="transactions.html" class="block p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">History</a>
+        </nav>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="flex-1 p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-3xl font-semibold">Dashboard</h1>
+          <button id="theme-toggle" class="px-3 py-2 rounded bg-primary text-white">Toggle Theme</button>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid md:grid-cols-3 gap-6 mb-6">
+          <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <p class="text-gray-500">Total Income</p>
+            <h2 id="total-income" class="text-2xl font-bold mt-2 text-green-500">₹0</h2>
+          </div>
+          <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <p class="text-gray-500">Total Expense</p>
+            <h2 id="total-expense" class="text-2xl font-bold mt-2 text-red-500">₹0</h2>
+          </div>
+          <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <p class="text-gray-500">Balance</p>
+            <h2 id="balance" class="text-2xl font-bold mt-2 text-blue-500">₹0</h2>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h2 class="text-xl font-semibold mb-4">Recent Transactions</h2>
+          <table class="w-full text-left">
+            <thead>
+              <tr class="text-gray-500 border-b border-gray-700">
+                <th class="py-2">Date</th>
+                <th>Contact</th>
+                <th>Type</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody id="recent-transactions">
+              <tr><td colspan="4" class="py-4 text-center text-gray-400">No data yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          primary: '#2563eb', // Blue-600
+        },
+      },
+    },
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        
+      // Dark Mode Toggle
+      document.getElementById("theme-toggle").onclick = () =>
+        document.documentElement.classList.toggle("dark");
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // 🌙 Dark mode toggle
+  document.getElementById("theme-toggle").onclick = () =>
+    document.documentElement.classList.toggle("dark");
+
+  async function loadDashboard() {
+    const res = await fetch("http://localhost:5000/api/transactions");
+    const data = await res.json();
+
+    if (data.length === 0) return;
+
+    // Calculate totals
+    const income = data.filter(t => t.type === "Income").reduce((a, b) => a + b.amount, 0);
+    const expense = data.filter(t => t.type === "Expense").reduce((a, b) => a + b.amount, 0);
+    const balance = income - expense;
+
+    document.getElementById("total-income").textContent = `₹${income}`;
+    document.getElementById("total-expense").textContent = `₹${expense}`;
+    document.getElementById("balance").textContent = `₹${balance}`;
+
+    // Recent transactions
+    const tbody = document.getElementById("recent-transactions");
+    tbody.innerHTML = "";
+    data.slice(0, 5).forEach(t => {
+      tbody.innerHTML += `
+        <tr class="border-b border-gray-700">
+          <td class="py-2">${t.date}</td>
+          <td>${t.contact}</td>
+          <td>${t.type}</td>
+          <td class="${t.type === "Expense" ? "text-red-500" : "text-green-500"} font-semibold">₹${t.amount}</td>
+        </tr>`;
+    });
+
+    // Pie Chart (Income vs Expense)
+    new Chart(document.getElementById("pieChart"), {
+      type: "pie",
+      data: {
+        labels: ["Income", "Expense"],
+        datasets: [{
+          data: [income, expense],
+          backgroundColor: ["#22c55e", "#ef4444"]
+        }]
+      }
+    });
+
+    // Line Chart (Monthly Trend)
+    const monthlyTotals = {};
+    data.forEach(t => {
+      const month = new Date(t.date).toLocaleString("default", { month: "short" });
+      monthlyTotals[month] = (monthlyTotals[month] || 0) + (t.type === "Expense" ? -t.amount : t.amount);
+    });
+
+    const months = Object.keys(monthlyTotals);
+    const values = Object.values(monthlyTotals);
+
+    new Chart(document.getElementById("lineChart"), {
+      type: "line",
+      data: {
+        labels: months,
+        datasets: [{
+          label: "Net Balance",
+          data: values,
+          fill: false,
+          borderColor: "#3b82f6",
+          tension: 0.3
+        }]
+      },
+      options: {
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
+  loadDashboard();
+</script>
+
   </body>
 </html>
